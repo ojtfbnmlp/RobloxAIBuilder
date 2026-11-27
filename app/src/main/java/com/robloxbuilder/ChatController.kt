@@ -1,8 +1,8 @@
 package com.robloxbuilder
 
-import android.app.Activity
-import android.app.AlertDialog
 import android.content.Context
+import android.os.Handler
+import android.os.Looper
 import android.view.View
 import android.widget.Button
 import android.widget.EditText
@@ -13,15 +13,17 @@ import org.json.JSONObject
 import kotlin.concurrent.thread
 
 class ChatController(
-    private val act: Activity,
+    private val ctx: Context,
     private val chat: LinearLayout,
     private val scroll: ScrollView,
     private val input: EditText,
-    private val sendBtn: Button
+    private val sendBtn: Button,
+    private val onNeedKey: () -> Unit
 ) {
     private var history = JSONArray()
     private var busy = false
-    private val prefs = act.getSharedPreferences("cfg", Context.MODE_PRIVATE)
+    private val ui = Handler(Looper.getMainLooper())
+    private val prefs = ctx.getSharedPreferences("cfg", Context.MODE_PRIVATE)
 
     fun hasKey(): Boolean = !prefs.getString("key", "").isNullOrBlank()
 
@@ -30,26 +32,10 @@ class ChatController(
     }
 
     fun bubble(t: String, mine: Boolean): View {
-        val v = Views.bubble(act, t, mine)
+        val v = Views.bubble(ctx, t, mine)
         chat.addView(v)
         scrollDown()
         return v
-    }
-
-    fun askKey() {
-        val et = EditText(act)
-        et.hint = "sk-ant-..."
-        et.setText(prefs.getString("key", ""))
-        et.setSingleLine()
-        AlertDialog.Builder(act)
-            .setTitle("Anthropic API key")
-            .setMessage("Lấy key ở console.anthropic.com. Key chỉ lưu trên máy bạn.")
-            .setView(et)
-            .setPositiveButton("Lưu") { _, _ ->
-                prefs.edit().putString("key", et.text.toString().trim()).apply()
-            }
-            .setNegativeButton("Huỷ", null)
-            .show()
     }
 
     fun reset() {
@@ -63,7 +49,7 @@ class ChatController(
         val key = prefs.getString("key", "") ?: ""
         if (text.isEmpty() || busy) return
         if (key.isBlank()) {
-            askKey()
+            onNeedKey()
             return
         }
         input.setText("")
@@ -71,23 +57,23 @@ class ChatController(
         history.put(JSONObject().put("role", "user").put("content", text))
         busy = true
         sendBtn.isEnabled = false
-        val loading = bubble("Đang suy nghĩ và tìm kiếm...", false)
+        val loading = bubble("Đang suy nghĩ...", false)
         thread {
             try {
                 val reply = ApiClient.send(key, history)
                 history.put(JSONObject().put("role", "assistant").put("content", reply))
-                act.runOnUiThread {
+                ui.post {
                     chat.removeView(loading)
                     render(reply)
                 }
             } catch (e: Exception) {
                 history.remove(history.length() - 1)
-                act.runOnUiThread {
+                ui.post {
                     chat.removeView(loading)
-                    bubble("Lỗi: " + (e.message ?: "không xác định"), false)
+                    bubble(e.message ?: "Lỗi không xác định", false)
                 }
             } finally {
-                act.runOnUiThread {
+                ui.post {
                     busy = false
                     sendBtn.isEnabled = true
                 }
@@ -102,7 +88,7 @@ class ChatController(
         for (m in re.findAll(reply)) {
             val before = reply.substring(last, m.range.first).trim()
             if (before.isNotEmpty()) bubble(before, false)
-            chat.addView(Views.codeBox(act, m.groupValues[1].trimEnd()))
+            chat.addView(Views.codeBox(ctx, m.groupValues[1].trimEnd()))
             last = m.range.last + 1
         }
         val rest = reply.substring(last).trim()
