@@ -8,6 +8,7 @@ import android.text.InputType
 import android.view.Gravity
 import android.widget.Button
 import android.widget.EditText
+import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
@@ -31,7 +32,6 @@ class MainActivity : Activity() {
 
         val root = LinearLayout(this)
         root.orientation = LinearLayout.VERTICAL
-        root.setBackgroundColor(Color.parseColor("#F4F5F7"))
         root.fitsSystemWindows = true
 
         val bar = LinearLayout(this)
@@ -73,12 +73,14 @@ class MainActivity : Activity() {
         row.addView(sendBtn, LinearLayout.LayoutParams(-2, -2))
         root.addView(row, LinearLayout.LayoutParams(-1, -2))
 
-        setContentView(root)
+        val frame = FrameLayout(this)
+        frame.addView(AuraView(this), FrameLayout.LayoutParams(-1, -1))
+        frame.addView(root, FrameLayout.LayoutParams(-1, -1))
+        setContentView(frame)
 
         ctrl = ChatController(this, chat, scroll, input, sendBtn)
         sendBtn.setOnClickListener { ctrl.send() }
         ctrl.bubble("Xin chào! Hãy mô tả map bạn muốn build. Mình sẽ viết script Luau (không dùng require, tối đa 300 dòng/nhóm).", false)
         if (!ctrl.hasKey()) ctrl.askKey()
     }
-}    
-            
+}
