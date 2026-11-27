@@ -6,7 +6,7 @@ import java.net.HttpURLConnection
 import java.net.URL
 
 object ApiClient {
-    private const val MODEL = "gemini-2.5-flash"
+    private const val MODEL = "gemini-3.8-flash"
 
     private val SYSTEM_PROMPT = """
 Bạn là trợ lý build map Roblox Studio (dùng trên Android). Trả lời bằng tiếng Việt.
