@@ -6,16 +6,25 @@ import java.net.HttpURLConnection
 import java.net.URL
 
 object ApiClient {
-    private const val MODEL = "gemini-3.8-flash"
+    private val MODELS = arrayOf(
+        "gemini-3.5-flash-lite",
+        "gemini-3.8-flash",
+        "gemini-3.6-flash"
+    )
+
+    class ApiError(val code: Int, msg: String) : RuntimeException(msg)
 
     private val SYSTEM_PROMPT = """
-Bạn là trợ lý build map và tạo vật thể cho Roblox Studio (dùng trên Android). Trả lời bằng tiếng Việt.
+Bạn là trợ lý AI cho game Roblox, hoạt động giống trợ lý AI của Roblox Studio, chạy trên Android. Trả lời bằng tiếng Việt.
+CHỨC NĂNG CHÍNH (khi người dùng hỏi bạn làm được gì thì trả lời đúng các mục này):
+1. Build map: địa hình, đảo, thành phố, dungeon, sân chơi, cây, hồ, núi...
+2. Tạo và spawn vật thể: nhà, xe, vũ khí, đồ nội thất, cổng, bẫy, NPC đơn giản, vật phẩm...
+3. Nếu không xác định được vật thể hoặc cách làm: tra cứu trên web để tìm module hoặc mã mẫu rồi gộp nội dung vào script. Nếu không tìm được thì tự viết từ các Part.
 QUY TẮC BẮT BUỘC:
 1. Viết code Luau chạy được ngay trong Roblox Studio. TUYỆT ĐỐI KHÔNG dùng require().
 2. Mỗi script tối đa 300 dòng. Nếu cần dài hơn, chia thành nhiều nhóm độc lập: Nhóm 1, Nhóm 2, Nhóm 3... (không giới hạn số nhóm). Mỗi nhóm nằm trong MỘT khối code riêng và chạy độc lập, không phụ thuộc nhóm khác.
 3. Trước mỗi khối code ghi rõ: tên nhóm, loại script (Script, LocalScript hoặc Command Bar) và đặt ở đâu (ServerScriptService, Workspace...).
-4. Khi cần thông tin mới hoặc không chắc về API Roblox, hãy tìm trên web trước khi trả lời.
-5. Ưu tiên code đơn giản, ít lỗi, dễ dán trên điện thoại. Cuối câu trả lời, hướng dẫn ngắn cách chạy.
+4. Ưu tiên code đơn giản, ít lỗi, dễ dán trên điện thoại. Cuối câu trả lời, hướng dẫn ngắn cách chạy.
 """.trimIndent()
 
     private fun toContents(history: JSONArray): JSONArray {
@@ -32,8 +41,7 @@ QUY TẮC BẮT BUỘC:
         return out
     }
 
-    private fun call(apiKey: String, history: JSONArray, useSearch: Boolean): String {
-        val key = apiKey.replace(Regex("\\s"), "")
+    private fun call(model: String, apiKey: String, history: JSONArray, useSearch: Boolean): String {
         val body = JSONObject()
         val sysPart = JSONObject().put("text", SYSTEM_PROMPT)
         body.put("systemInstruction", JSONObject().put("parts", JSONArray().put(sysPart)))
@@ -44,15 +52,15 @@ QUY TẮC BẮT BUỘC:
         }
 
         val url = "https://generativelanguage.googleapis.com/v1beta/models/" +
-            MODEL + ":generateContent"
+            model + ":generateContent"
         val conn = URL(url).openConnection() as HttpURLConnection
         try {
             conn.requestMethod = "POST"
-            conn.connectTimeout = 30000
-            conn.readTimeout = 180000
+            conn.connectTimeout = 15000
+            conn.readTimeout = 90000
             conn.doOutput = true
             conn.setRequestProperty("Content-Type", "application/json")
-            conn.setRequestProperty("x-goog-api-key", key)
+            conn.setRequestProperty("x-goog-api-key", apiKey)
             conn.outputStream.use { it.write(body.toString().toByteArray()) }
 
             val code = conn.responseCode
@@ -64,7 +72,7 @@ QUY TẮC BẮT BUỘC:
                 } catch (e: Exception) {
                     text
                 }
-                throw RuntimeException("Lỗi " + code + ": " + msg)
+                throw ApiError(code, msg)
             }
             val cands = JSONObject(text).optJSONArray("candidates")
             if (cands == null || cands.length() == 0) {
@@ -83,11 +91,45 @@ QUY TẮC BẮT BUỘC:
         }
     }
 
-    fun send(apiKey: String, history: JSONArray): String {
-        return try {
-            call(apiKey, history, true)
-        } catch (e: Exception) {
-            call(apiKey, history, false)
+    private fun friendly(e: Exception?): String {
+        if (e is ApiError) {
+            return when (e.code) {
+                429 -> "Hết lượt miễn phí hoặc gửi quá nhanh. Chờ 1-2 phút rồi thử lại."
+                500, 502, 503, 504 -> "Máy chủ Gemini đang quá tải. Thử lại sau ít phút."
+                400, 401, 403 -> "API key sai hoặc chưa dùng được. Bấm API key để nhập lại. (" + e.message + ")"
+                404 -> "Model không còn khả dụng với key này. Báo lại để cập nhật model. (" + e.message + ")"
+                else -> "Lỗi " + e.code + ": " + e.message
+            }
         }
+        return "Lỗi mạng: " + (e?.message ?: "không xác định")
+    }
+
+    fun send(apiKey: String, history: JSONArray): String {
+        var last: Exception? = null
+        var useSearch = true
+        for (model in MODELS) {
+            for (attempt in 0 until 2) {
+                try {
+                    return call(model, apiKey, history, useSearch)
+                } catch (e: ApiError) {
+                    last = e
+                    if (e.code == 401 || e.code == 403) {
+                        throw RuntimeException(friendly(e))
+                    }
+                    if (useSearch) {
+                        useSearch = false
+                        continue
+                    }
+                    if (e.code == 400) throw RuntimeException(friendly(e))
+                    if (e.code == 404) break
+                    Thread.sleep(2000)
+                } catch (e: Exception) {
+                    last = e
+                    useSearch = false
+                    Thread.sleep(2000)
+                }
+            }
+        }
+        throw RuntimeException(friendly(last))
     }
 }
