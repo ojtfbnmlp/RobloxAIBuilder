@@ -96,9 +96,8 @@ class ChatController(
     }
 
     private fun render(reply: String) {
-        val re = Regex("```[a-zA-Z0-9]*\\n([\\s\\S]*?)```")
-        var last = 0
-                val re = Regex("\u0060\u0060\u0060[a-zA-Z0-9]*\\n([\\s\\S]*?)\u0060\u0060\u0060")
+        val fence = "\u0060\u0060\u0060"
+        val re = Regex(fence + "[a-zA-Z0-9]*\\n([\\s\\S]*?)" + fence)
         var last = 0
         for (m in re.findAll(reply)) {
             val before = reply.substring(last, m.range.first).trim()
