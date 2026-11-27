@@ -98,4 +98,16 @@ class ChatController(
     private fun render(reply: String) {
         val re = Regex("```[a-zA-Z0-9]*\\n([\\s\\S]*?)```")
         var last = 0
-        for (m in re.findAll(re
+                val re = Regex("\u0060\u0060\u0060[a-zA-Z0-9]*\\n([\\s\\S]*?)\u0060\u0060\u0060")
+        var last = 0
+        for (m in re.findAll(reply)) {
+            val before = reply.substring(last, m.range.first).trim()
+            if (before.isNotEmpty()) bubble(before, false)
+            chat.addView(Views.codeBox(act, m.groupValues[1].trimEnd()))
+            last = m.range.last + 1
+        }
+        val rest = reply.substring(last).trim()
+        if (rest.isNotEmpty()) bubble(rest, false)
+        scrollDown()
+    }
+}
