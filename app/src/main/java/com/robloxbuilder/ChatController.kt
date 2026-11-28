@@ -21,6 +21,17 @@ class ChatController(
     private val sendBtn: Button,
     private val onNeedKey: () -> Unit
 ) {
+    private val FIX_HEAD = "[SỬA LỖI]"
+    private val FIX_FIELD1 = "Lỗi (dán từ cửa sổ Output):\n"
+    private val FIX_TEMPLATE = "[SỬA LỖI]\nLỗi (dán từ cửa sổ Output):\n\nScript bị lỗi (dán code):\n"
+    private val FIX_RULES = "Bạn đang ở chế độ SỬA LỖI. Làm theo thứ tự: " +
+        "1) Nói ngắn gọn nguyên nhân lỗi (1 đến 3 câu). " +
+        "2) Đưa bản script ĐÃ SỬA ĐẦY ĐỦ trong khối code, không chỉ đoạn vá, không dùng require, " +
+        "tối đa 300 dòng mỗi script, dài hơn thì chia Nhóm 1, Nhóm 2, Nhóm 3. " +
+        "3) Ghi rõ đã sửa dòng nào và vì sao. " +
+        "4) Nếu thiếu thông tin (chưa có script hoặc chưa có thông báo lỗi) thì hỏi lại đúng phần còn thiếu, đừng đoán bừa. " +
+        "5) Nếu có ảnh chụp lỗi thì đọc lỗi trong ảnh.\n\n"
+
     private var history = JSONArray()
     private var busy = false
     private var pendingImage: String? = null
@@ -39,6 +50,13 @@ class ChatController(
         chat.addView(v)
         scrollDown()
         return v
+    }
+
+    fun startFix() {
+        input.setText(FIX_TEMPLATE)
+        input.setSelection(FIX_HEAD.length + 1 + FIX_FIELD1.length)
+        input.requestFocus()
+        bubble("Chế độ sửa lỗi: dán lỗi từ Output và code script vào ô nhập rồi bấm Gửi. Có thể bấm nút ảnh để gửi ảnh chụp lỗi.", false)
     }
 
     fun pickImage() {
@@ -74,11 +92,16 @@ class ChatController(
             onNeedKey()
             return
         }
+        if (raw == FIX_TEMPLATE.trim() && img == null) {
+            bubble("Bạn chưa dán lỗi hoặc script. Hãy dán vào ô nhập rồi bấm Gửi.", false)
+            return
+        }
         val text = if (raw.isEmpty()) "Hãy build map chi tiết và đẹp theo ảnh này." else raw
+        val sendText = if (text.startsWith(FIX_HEAD)) FIX_RULES + text else text
         input.setText("")
         pendingImage = null
         bubble(text, true)
-        val msg = JSONObject().put("role", "user").put("content", text)
+        val msg = JSONObject().put("role", "user").put("content", sendText)
         if (img != null) msg.put("image", img)
         history.put(msg)
         busy = true
