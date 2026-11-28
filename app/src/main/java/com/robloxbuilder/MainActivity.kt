@@ -88,6 +88,7 @@ class MainActivity : Activity() {
         title.setTypeface(null, Typeface.BOLD)
         bar.addView(title, LinearLayout.LayoutParams(0, -2, 1f))
         bar.addView(smallBtn("Bong bóng") { startOverlay() })
+        bar.addView(smallBtn("🛠") { ctrl.startFix() })
         bar.addView(smallBtn("Ảnh") { ctrl.pickImage() })
         bar.addView(smallBtn("API key") { askKey() })
         bar.addView(smallBtn("Xoá") { ctrl.reset() })
@@ -122,7 +123,7 @@ class MainActivity : Activity() {
 
         ctrl = ChatController(this, chat, scroll, input, sendBtn) { askKey() }
         sendBtn.setOnClickListener { ctrl.send() }
-        ctrl.bubble("Xin chào! Mình build map và tạo vật thể cho Roblox. Mô tả thứ bạn muốn hoặc bấm Ảnh để gửi ảnh tham khảo.", false)
+        ctrl.bubble("Xin chào! Mình build map và tạo vật thể cho Roblox. Mô tả thứ bạn muốn, bấm Ảnh để gửi ảnh tham khảo, hoặc bấm nút 🛠 để sửa lỗi script.", false)
 
         if (!ctrl.hasKey()) {
             askKey()
