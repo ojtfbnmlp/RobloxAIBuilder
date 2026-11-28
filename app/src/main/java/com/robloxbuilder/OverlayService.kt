@@ -16,6 +16,7 @@ import android.view.View
 import android.view.WindowManager
 import android.widget.Button
 import android.widget.EditText
+import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
@@ -56,18 +57,18 @@ class OverlayService : Service() {
         val dm = resources.displayMetrics
         val type = WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
 
-        val size = Views.dp(ui, 56)
+        val size = Views.dp(ui, 72)
         bubbleLp = WindowManager.LayoutParams(
             size, size, type,
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
             PixelFormat.TRANSLUCENT
         )
         bubbleLp.gravity = Gravity.TOP or Gravity.START
-        bubbleLp.x = Views.dp(ui, 12)
+        bubbleLp.x = Views.dp(ui, 8)
         bubbleLp.y = Views.dp(ui, 200)
 
-        val pw = (dm.widthPixels * 0.94f).toInt()
-        val ph = (dm.heightPixels * 0.45f).toInt()
+        val pw = (dm.widthPixels * 0.96f).toInt()
+        val ph = (dm.heightPixels * 0.55f).toInt()
         panelLp = WindowManager.LayoutParams(
             pw, ph, type,
             WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL,
@@ -75,7 +76,7 @@ class OverlayService : Service() {
         )
         panelLp.gravity = Gravity.TOP or Gravity.START
         panelLp.x = (dm.widthPixels - pw) / 2
-        panelLp.y = Views.dp(ui, 48)
+        panelLp.y = Views.dp(ui, 40)
 
         bubble = buildBubble()
         panel = buildPanel()
@@ -83,6 +84,7 @@ class OverlayService : Service() {
     }
 
     private fun buildBubble(): View {
+        val glow = GlowFrame(ui, 28, 8)
         val b = TextView(ui)
         b.text = "AI"
         b.textSize = 18f
@@ -90,8 +92,9 @@ class OverlayService : Service() {
         b.setTypeface(null, Typeface.BOLD)
         b.gravity = Gravity.CENTER
         b.background = Views.rounded(ui, "#7C3AED", 28)
-        makeDraggable(b, bubbleLp, b) { showPanel() }
-        return b
+        glow.addView(b, FrameLayout.LayoutParams(-1, -1))
+        makeDraggable(glow, bubbleLp, glow) { showPanel() }
+        return glow
     }
 
     private fun smallBtn(t: String, action: () -> Unit): Button {
@@ -106,6 +109,7 @@ class OverlayService : Service() {
     }
 
     private fun buildPanel(): View {
+        val root = GlowFrame(ui, 16, 8)
         val p = LinearLayout(ui)
         p.orientation = LinearLayout.VERTICAL
         p.background = Views.rounded(ui, "#F4F5F7", 16)
@@ -117,16 +121,17 @@ class OverlayService : Service() {
         val pad = Views.dp(ui, 8)
         header.setPadding(pad, pad / 2, pad / 2, pad / 2)
         val title = TextView(ui)
-        title.text = "Roblox AI Builder"
+        title.text = "Roblox AI"
         title.textSize = 15f
         title.setTextColor(Color.WHITE)
         title.setTypeface(null, Typeface.BOLD)
         header.addView(title, LinearLayout.LayoutParams(0, -2, 1f))
+        header.addView(smallBtn("📷") { ctrl.pickImage() })
         header.addView(smallBtn("Xoá") { ctrl.reset() })
         header.addView(smallBtn("—") { showBubble() })
         header.addView(smallBtn("✕") { stopSelf() })
         p.addView(header, LinearLayout.LayoutParams(-1, -2))
-        makeDraggable(header, panelLp, p, null)
+        makeDraggable(header, panelLp, root, null)
 
         val scroll = ScrollView(ui)
         val chat = LinearLayout(ui)
@@ -150,12 +155,14 @@ class OverlayService : Service() {
         row.addView(sendBtn, LinearLayout.LayoutParams(-2, -2))
         p.addView(row, LinearLayout.LayoutParams(-1, -2))
 
+        root.addView(p, FrameLayout.LayoutParams(-1, -1))
+
         ctrl = ChatController(ui, chat, scroll, input, sendBtn) {
             ctrl.bubble("Chưa có API key. Hãy mở app Roblox AI Builder để nhập key.", false)
         }
         sendBtn.setOnClickListener { ctrl.send() }
-        ctrl.bubble("Xin chào! Mình build map và tạo vật thể cho Roblox. Hãy mô tả thứ bạn muốn.", false)
-        return p
+        ctrl.bubble("Xin chào! Mình build map và tạo vật thể cho Roblox. Mô tả thứ bạn muốn hoặc bấm 📷 để gửi ảnh tham khảo.", false)
+        return root
     }
 
     private fun makeDraggable(
