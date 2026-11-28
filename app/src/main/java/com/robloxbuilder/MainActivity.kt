@@ -82,12 +82,13 @@ class MainActivity : Activity() {
         bar.setPadding(p + p / 2, p, p, p)
 
         val title = TextView(this)
-        title.text = "Roblox AI Builder"
+        title.text = "Roblox AI"
         title.textSize = 18f
         title.setTextColor(Color.WHITE)
         title.setTypeface(null, Typeface.BOLD)
         bar.addView(title, LinearLayout.LayoutParams(0, -2, 1f))
         bar.addView(smallBtn("Bong bóng") { startOverlay() })
+        bar.addView(smallBtn("Ảnh") { ctrl.pickImage() })
         bar.addView(smallBtn("API key") { askKey() })
         bar.addView(smallBtn("Xoá") { ctrl.reset() })
         root.addView(bar, LinearLayout.LayoutParams(-1, -2))
@@ -121,7 +122,7 @@ class MainActivity : Activity() {
 
         ctrl = ChatController(this, chat, scroll, input, sendBtn) { askKey() }
         sendBtn.setOnClickListener { ctrl.send() }
-        ctrl.bubble("Xin chào! Mình build map và tạo vật thể cho Roblox. Hãy mô tả thứ bạn muốn.", false)
+        ctrl.bubble("Xin chào! Mình build map và tạo vật thể cho Roblox. Mô tả thứ bạn muốn hoặc bấm Ảnh để gửi ảnh tham khảo.", false)
 
         if (!ctrl.hasKey()) {
             askKey()
