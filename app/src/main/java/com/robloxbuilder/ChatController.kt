@@ -1,6 +1,7 @@
 package com.robloxbuilder
 
 import android.content.Context
+import android.content.Intent
 import android.os.Handler
 import android.os.Looper
 import android.view.View
@@ -22,6 +23,7 @@ class ChatController(
 ) {
     private var history = JSONArray()
     private var busy = false
+    private var pendingImage: String? = null
     private val ui = Handler(Looper.getMainLooper())
     private val prefs = ctx.getSharedPreferences("cfg", Context.MODE_PRIVATE)
 
@@ -32,29 +34,53 @@ class ChatController(
     }
 
     fun bubble(t: String, mine: Boolean): View {
-        val v = Views.bubble(ctx, t, mine)
+        val clean = if (mine) t else t.replace("**", "")
+        val v = Views.bubble(ctx, clean, mine)
         chat.addView(v)
         scrollDown()
         return v
     }
 
+    fun pickImage() {
+        ImageHolder.listener = { b64 -> ui.post { setImage(b64) } }
+        val i = Intent(ctx, PickImageActivity::class.java)
+        i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        ctx.startActivity(i)
+    }
+
+    private fun setImage(b64: String) {
+        if (b64.isEmpty()) {
+            bubble("Không đọc được ảnh, hãy thử ảnh khác.", false)
+            return
+        }
+        pendingImage = b64
+        chat.addView(ImageHolder.thumb(ctx, b64))
+        bubble("Đã đính kèm ảnh. Nhập yêu cầu rồi bấm Gửi (hoặc bấm Gửi luôn để build theo ảnh).", false)
+    }
+
     fun reset() {
         history = JSONArray()
+        pendingImage = null
         chat.removeAllViews()
         bubble("Đã xoá hội thoại. Hãy nhập yêu cầu mới.", false)
     }
 
     fun send() {
-        val text = input.text.toString().trim()
+        val raw = input.text.toString().trim()
+        val img = pendingImage
         val key = prefs.getString("key", "") ?: ""
-        if (text.isEmpty() || busy) return
+        if ((raw.isEmpty() && img == null) || busy) return
         if (key.isBlank()) {
             onNeedKey()
             return
         }
+        val text = if (raw.isEmpty()) "Hãy build map chi tiết và đẹp theo ảnh này." else raw
         input.setText("")
+        pendingImage = null
         bubble(text, true)
-        history.put(JSONObject().put("role", "user").put("content", text))
+        val msg = JSONObject().put("role", "user").put("content", text)
+        if (img != null) msg.put("image", img)
+        history.put(msg)
         busy = true
         sendBtn.isEnabled = false
         val loading = bubble("Đang suy nghĩ...", false)
