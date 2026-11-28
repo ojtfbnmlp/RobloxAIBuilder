@@ -126,6 +126,7 @@ class OverlayService : Service() {
         title.setTextColor(Color.WHITE)
         title.setTypeface(null, Typeface.BOLD)
         header.addView(title, LinearLayout.LayoutParams(0, -2, 1f))
+        header.addView(smallBtn("🛠") { ctrl.startFix() })
         header.addView(smallBtn("📷") { ctrl.pickImage() })
         header.addView(smallBtn("Xoá") { ctrl.reset() })
         header.addView(smallBtn("—") { showBubble() })
@@ -161,7 +162,7 @@ class OverlayService : Service() {
             ctrl.bubble("Chưa có API key. Hãy mở app Roblox AI Builder để nhập key.", false)
         }
         sendBtn.setOnClickListener { ctrl.send() }
-        ctrl.bubble("Xin chào! Mình build map và tạo vật thể cho Roblox. Mô tả thứ bạn muốn hoặc bấm 📷 để gửi ảnh tham khảo.", false)
+        ctrl.bubble("Xin chào! Mình build map và tạo vật thể cho Roblox. Mô tả thứ bạn muốn, bấm nút ảnh để gửi ảnh tham khảo, hoặc bấm nút 🛠 để sửa lỗi script.", false)
         return root
     }
 
